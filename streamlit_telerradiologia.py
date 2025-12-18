@@ -1,24 +1,12 @@
 """
 App Streamlit – Assistente de Coleta Telerradiologia (Comercial → Pricing)
-
-Objetivo:
-- Guiar o Comercial na coleta de informações
-- Evitar respostas técnicas (JSON)
-- Permitir VOLTAR para revisar informações
-- Gerar automaticamente o TEXTO DO PEDIDO DE PRICING
-
-Execução:
-streamlit run streamlit_telerradiologia.py
-
-Pré-requisitos:
-- pip install streamlit
 """
 
 import streamlit as st
 import json
 
 # ==========================
-# MAPA DE NAVEGAÇÃO (VOLTar)
+# MAPA DE NAVEGAÇÃO
 # ==========================
 
 ETAPA_ANTERIOR = {
@@ -30,61 +18,58 @@ ETAPA_ANTERIOR = {
     "final": "sla",
 }
 
-
 def botao_voltar(etapa_atual):
     etapa_anterior = ETAPA_ANTERIOR.get(etapa_atual)
-    if etapa_anterior:
-        if st.button("⬅ Voltar"):
-            st.session_state.etapa = etapa_anterior
-            st.rerun()
+    if etapa_anterior and st.button("⬅ Voltar"):
+        st.session_state.etapa = etapa_anterior
+        st.rerun()
 
 # ==========================
-# FUNÇÃO: GERAR TEXTO DE PRICING
+# TEXTO DE PRICING
 # ==========================
 
 def gerar_texto_pricing(data: dict) -> str:
     linhas = []
 
     linhas.append("Pedido de Precificação – Telerradiologia\n")
-    linhas.append(
-        "Solicita-se a elaboração de proposta de precificação para prestação de serviços de telerradiologia, conforme escopo abaixo:\n"
-    )
+    linhas.append("Solicita-se a elaboração de proposta de precificação para prestação de serviços de telerradiologia, conforme escopo abaixo:\n")
 
-    modalidades = ", ".join(data["modalidades"])
-    linhas.append(f"Modalidades contempladas:\n{modalidades}\n")
+    linhas.append("Modalidades contempladas:")
+    linhas.append(", ".join(data["modalidades"]) + "\n")
 
     linhas.append("Volumetria estimada:")
     for mod, v in data["volumetria"].items():
         linhas.append(
-            f"- {mod}: volume médio mensal de {v['volume_mensal']} exames "
+            f"- {mod}: {v['volume_mensal']} exames/mês "
             f"({v['urgente']}% urgentes, {v['internado']}% internados, {v['eletivo']}% eletivos)"
         )
     linhas.append("")
 
-    linhas.append(
-        f"Abrangência do contrato:\nAtendimento em {data['quantidade_unidades']} unidade(s).\n"
-    )
+    if data["modelo_remuneracao"] == "Por exame":
+        linhas.append("Histórico – Volumetria média mensal (últimos 6 meses):")
+        for mod, v in data.get("volumetria_6m", {}).items():
+            linhas.append(f"- {mod}: {v} exames/mês")
+        linhas.append("")
+
+    linhas.append(f"Abrangência: {data['quantidade_unidades']} unidade(s).\n")
 
     linhas.append("Infraestrutura:")
-    linhas.append(f"- Link de envio das imagens: {data['link_envio']}")
-    linhas.append(f"- Armazenamento das imagens: {data['armazenamento']}")
-    linhas.append(f"- Integração de sistemas: {data['integracao']}")
-    linhas.append(f"- PACS do cliente: {data['pacs']}")
-    linhas.append(f"- HIS do cliente: {data['his']}")
-    linhas.append(f"- Servidor PACS / Router: {data['servidor_pacs']}")
+    linhas.append(f"- Link de envio: {data['link_envio']}")
+    linhas.append(f"- Armazenamento: {data['armazenamento']}")
+    linhas.append(f"- Integração: {data['integracao']}")
+    linhas.append(f"- PACS: {data['pacs']}")
+    linhas.append(f"- HIS: {data['his']}")
+    linhas.append(f"- Servidor PACS: {data['servidor_pacs']}")
     linhas.append(f"- Portal do Paciente: {data['portal_paciente']}")
 
-    # SISCAN / SISMAMA (somente se Mamografia)
-    if "Mamografia" in data.get("modalidades", []) and data.get("siscan"):
-        linhas.append(f"- Preenchimento de sistemas do MS: {data['siscan']}")
+    if "Mamografia" in data["modalidades"]:
+        linhas.append(f"- Preenchimento MS (Mamografia): {data['siscan']}")
 
-    linhas.append("")
+    linhas.append("\nModelo comercial:")
+    linhas.append(f"- Remuneração: {data['modelo_remuneracao']}")
+    linhas.append(f"- Volume mínimo: {data['volume_minimo']}\n")
 
-    linhas.append("Modelo comercial:")
-    linhas.append(f"- Modelo de remuneração: {data['modelo_remuneracao']}")
-    linhas.append(f"- Volume mínimo mensal: {data['volume_minimo']}\n")
-
-    linhas.append("SLA de laudos:")
+    linhas.append("SLA:")
     linhas.append(f"- Urgentes: {data['sla']['urgente']}")
     linhas.append(f"- Internados: {data['sla']['internado']}")
     linhas.append(f"- Eletivos: {data['sla']['eletivo']}\n")
@@ -104,6 +89,7 @@ if "data" not in st.session_state:
     st.session_state.data = {
         "modalidades": [],
         "volumetria": {},
+        "volumetria_6m": {},   # <-- NOVO
         "quantidade_unidades": None,
         "link_envio": None,
         "armazenamento": None,
@@ -114,13 +100,9 @@ if "data" not in st.session_state:
         "portal_paciente": None,
         "modelo_remuneracao": None,
         "volume_minimo": None,
-        "siscan": None,  # <-- NOVO
+        "siscan": None,
         "sla": {}
     }
-
-# ==========================
-# UI
-# ==========================
 
 st.title("Assistente de Precificação – Telerradiologia")
 
@@ -132,9 +114,9 @@ if st.session_state.etapa == "modalidades":
     st.subheader("1. Modalidades")
 
     modalidades = st.multiselect(
-        "Quais modalidades fazem parte do escopo?",
+        "Selecione as modalidades:",
         ["Raios-X", "Tomografia", "Ressonância Magnética", "Mamografia", "Densitometria", "Ultrassonografia"],
-        default=st.session_state.data.get("modalidades", []),
+        default=st.session_state.data["modalidades"]
     )
 
     if st.button("Próximo") and modalidades:
@@ -144,46 +126,23 @@ if st.session_state.etapa == "modalidades":
 
 elif st.session_state.etapa == "volumetria":
     botao_voltar("volumetria")
-    st.subheader("2. Volumetria por modalidade")
+    st.subheader("2. Volumetria estimada")
 
     for mod in st.session_state.data["modalidades"]:
-        with st.expander(f"{mod}", expanded=True):
-            volume = st.number_input(
-                f"Volume mensal – {mod}",
-                min_value=0,
-                step=1,
-                key=f"vol_{mod}",
-                value=st.session_state.data["volumetria"].get(mod, {}).get("volume_mensal", 0),
-            )
-            urgente = st.number_input(
-                f"% Urgente – {mod}",
-                min_value=0,
-                max_value=100,
-                step=1,
-                key=f"urg_{mod}",
-                value=st.session_state.data["volumetria"].get(mod, {}).get("urgente", 0),
-            )
-            internado = st.number_input(
-                f"% Internado – {mod}",
-                min_value=0,
-                max_value=100,
-                step=1,
-                key=f"int_{mod}",
-                value=st.session_state.data["volumetria"].get(mod, {}).get("internado", 0),
-            )
+        with st.expander(mod, expanded=True):
+            volume = st.number_input(f"Volume mensal – {mod}", 0, key=f"vol_{mod}")
+            urgente = st.number_input(f"% Urgente – {mod}", 0, 100, key=f"urg_{mod}")
+            internado = st.number_input(f"% Internado – {mod}", 0, 100, key=f"int_{mod}")
 
             eletivo = 100 - urgente - internado
-            st.caption(f"% Eletivo calculado automaticamente: {eletivo}%")
+            st.caption(f"Eletivo calculado: {eletivo}%")
 
-            if eletivo < 0:
-                st.error("Percentuais inválidos (soma maior que 100)")
-            else:
-                st.session_state.data["volumetria"][mod] = {
-                    "volume_mensal": volume,
-                    "urgente": urgente,
-                    "internado": internado,
-                    "eletivo": eletivo,
-                }
+            st.session_state.data["volumetria"][mod] = {
+                "volume_mensal": volume,
+                "urgente": urgente,
+                "internado": internado,
+                "eletivo": eletivo
+            }
 
     if st.button("Próximo"):
         st.session_state.etapa = "quantidade_unidades"
@@ -193,12 +152,7 @@ elif st.session_state.etapa == "quantidade_unidades":
     botao_voltar("quantidade_unidades")
     st.subheader("3. Abrangência")
 
-    qtd = st.number_input(
-        "Quantidade de unidades atendidas",
-        min_value=1,
-        step=1,
-        value=st.session_state.data.get("quantidade_unidades") or 1,
-    )
+    qtd = st.number_input("Quantidade de unidades", 1)
 
     if st.button("Próximo"):
         st.session_state.data["quantidade_unidades"] = qtd
@@ -207,74 +161,21 @@ elif st.session_state.etapa == "quantidade_unidades":
 
 elif st.session_state.etapa == "infra":
     botao_voltar("infra")
-    st.subheader("4. Infraestrutura e Integração")
+    st.subheader("4. Infraestrutura")
 
-    # Link de envio
-    opcoes_link = ["FIDI", "Cliente"]
-    valor_link = st.session_state.data.get("link_envio") or "FIDI"
-    st.session_state.data["link_envio"] = st.selectbox(
-        "Link de envio das imagens",
-        opcoes_link,
-        index=opcoes_link.index(valor_link),
-    )
+    st.session_state.data["link_envio"] = st.selectbox("Link de envio", ["FIDI", "Cliente"])
+    st.session_state.data["armazenamento"] = st.selectbox("Armazenamento", ["FIDI", "Cliente"])
+    st.session_state.data["integracao"] = st.selectbox("Integração", ["Sim", "Não"])
+    st.session_state.data["pacs"] = st.text_input("PACS")
+    st.session_state.data["his"] = st.text_input("HIS")
+    st.session_state.data["servidor_pacs"] = st.selectbox("Servidor PACS", ["FIDI", "Cliente"])
+    st.session_state.data["portal_paciente"] = st.selectbox("Portal do Paciente", ["Sim", "Não"])
 
-    # Armazenamento
-    opcoes_arm = ["FIDI", "Cliente"]
-    valor_arm = st.session_state.data.get("armazenamento") or "FIDI"
-    st.session_state.data["armazenamento"] = st.selectbox(
-        "Armazenamento das imagens",
-        opcoes_arm,
-        index=opcoes_arm.index(valor_arm),
-    )
-
-    # Integração
-    opcoes_int = ["Sim", "Não"]
-    valor_int = st.session_state.data.get("integracao") or "Não"
-    st.session_state.data["integracao"] = st.selectbox(
-        "Necessita integração de sistemas?",
-        opcoes_int,
-        index=opcoes_int.index(valor_int),
-    )
-
-    st.session_state.data["pacs"] = st.text_input(
-        "PACS do cliente",
-        value=st.session_state.data.get("pacs") or "",
-    )
-    st.session_state.data["his"] = st.text_input(
-        "HIS do cliente",
-        value=st.session_state.data.get("his") or "",
-    )
-
-    # SISCAN / SISMAMA (somente se Mamografia)
-    if "Mamografia" in st.session_state.data.get("modalidades", []):
-        opcoes_siscan = ["SISCAN", "SISMAMA", "Nenhum dos dois"]
-        valor_siscan = st.session_state.data.get("siscan") or "Nenhum dos dois"
+    if "Mamografia" in st.session_state.data["modalidades"]:
         st.session_state.data["siscan"] = st.selectbox(
-            "Haverá preenchimento de sistemas do Ministério da Saúde?",
-            opcoes_siscan,
-            index=opcoes_siscan.index(valor_siscan),
-            help="Obrigatório para serviços de Mamografia",
+            "Preenchimento MS (Mamografia)",
+            ["SISCAN", "SISMAMA", "Nenhum dos dois"]
         )
-    else:
-        st.session_state.data["siscan"] = None
-
-    # Servidor PACS
-    opcoes_srv = ["FIDI", "Cliente"]
-    valor_srv = st.session_state.data.get("servidor_pacs") or "Cliente"
-    st.session_state.data["servidor_pacs"] = st.selectbox(
-        "Servidor PACS / Router",
-        opcoes_srv,
-        index=opcoes_srv.index(valor_srv),
-    )
-
-    # Portal do paciente
-    opcoes_portal = ["Sim", "Não"]
-    valor_portal = st.session_state.data.get("portal_paciente") or "Não"
-    st.session_state.data["portal_paciente"] = st.selectbox(
-        "Portal do Paciente",
-        opcoes_portal,
-        index=opcoes_portal.index(valor_portal),
-    )
 
     if st.button("Próximo"):
         st.session_state.etapa = "financeiro"
@@ -284,20 +185,24 @@ elif st.session_state.etapa == "financeiro":
     botao_voltar("financeiro")
     st.subheader("5. Modelo Comercial")
 
-    opcoes_modelo = ["Por exame", "Fixo + Variável"]
-    valor_modelo = st.session_state.data.get("modelo_remuneracao") or "Por exame"
     st.session_state.data["modelo_remuneracao"] = st.selectbox(
         "Modelo de remuneração",
-        opcoes_modelo,
-        index=opcoes_modelo.index(valor_modelo),
+        ["Por exame", "Fixo + Variável"]
     )
 
-    opcoes_vol = ["Sim", "Não"]
-    valor_vol = st.session_state.data.get("volume_minimo") or "Não"
+    if st.session_state.data["modelo_remuneracao"] == "Por exame":
+        st.markdown("### Volumetria média mensal – últimos 6 meses")
+        for mod in st.session_state.data["modalidades"]:
+            st.session_state.data["volumetria_6m"][mod] = st.number_input(
+                f"{mod} – média mensal (6 meses)",
+                min_value=0,
+                step=1,
+                key=f"hist_{mod}"
+            )
+
     st.session_state.data["volume_minimo"] = st.selectbox(
         "Existe volume mínimo mensal?",
-        opcoes_vol,
-        index=opcoes_vol.index(valor_vol),
+        ["Sim", "Não"]
     )
 
     if st.button("Próximo"):
@@ -306,39 +211,24 @@ elif st.session_state.etapa == "financeiro":
 
 elif st.session_state.etapa == "sla":
     botao_voltar("sla")
-    st.subheader("6. SLA de Laudos")
+    st.subheader("6. SLA")
 
-    urgente = st.text_input(
-        "SLA – Urgentes", value=st.session_state.data.get("sla", {}).get("urgente", "1h")
-    )
-    internado = st.text_input(
-        "SLA – Internados", value=st.session_state.data.get("sla", {}).get("internado", "12h")
-    )
-    eletivo = st.text_input(
-        "SLA – Eletivos", value=st.session_state.data.get("sla", {}).get("eletivo", "48h")
-    )
+    st.session_state.data["sla"] = {
+        "urgente": st.text_input("Urgente", "1h"),
+        "internado": st.text_input("Internado", "12h"),
+        "eletivo": st.text_input("Eletivo", "48h")
+    }
 
     if st.button("Finalizar"):
-        st.session_state.data["sla"] = {
-            "urgente": urgente,
-            "internado": internado,
-            "eletivo": eletivo,
-        }
         st.session_state.etapa = "final"
         st.rerun()
 
 elif st.session_state.etapa == "final":
     botao_voltar("final")
-    st.success("Coleta finalizada com sucesso")
+    st.success("Coleta finalizada")
 
-    texto_pricing = gerar_texto_pricing(st.session_state.data)
+    texto = gerar_texto_pricing(st.session_state.data)
+    st.text_area("Texto do pedido de pricing", texto, height=450)
 
-    st.subheader("Texto do pedido de pricing")
-    st.text_area(
-        "Copie e cole este texto no orquestra:",
-        texto_pricing,
-        height=420,
-    )
-
-    with st.expander("Ver dados estruturados (uso interno)"):
+    with st.expander("Dados estruturados"):
         st.json(st.session_state.data)
