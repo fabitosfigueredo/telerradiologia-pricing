@@ -126,7 +126,7 @@ if st.session_state.etapa == "modalidades":
 
     modalidades = st.multiselect(
         "Quais modalidades fazem parte do escopo?",
-        ["RX", "TC", "RM", "Mamografia", "Densitometria", "Medicina Nuclear"],
+        ["Raios-X", "Tomografia", "Ressonância Magnética", "Mamografia", "Densitometria", "Ultrassonografia"],
         default=st.session_state.data.get("modalidades", []),
     )
 
