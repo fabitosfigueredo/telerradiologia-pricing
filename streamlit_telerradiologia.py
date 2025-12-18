@@ -284,7 +284,7 @@ elif st.session_state.etapa == "financeiro":
     botao_voltar("financeiro")
     st.subheader("5. Modelo Comercial")
 
-    opcoes_modelo = ["Por exame", "Pacote mensal", "Escalonado por volume", "Misto"]
+    opcoes_modelo = ["Por exame", "Fixo + Variável"]
     valor_modelo = st.session_state.data.get("modelo_remuneracao") or "Por exame"
     st.session_state.data["modelo_remuneracao"] = st.selectbox(
         "Modelo de remuneração",
@@ -335,7 +335,7 @@ elif st.session_state.etapa == "final":
 
     st.subheader("Texto do pedido de pricing")
     st.text_area(
-        "Copie e cole este texto no e-mail ou sistema interno:",
+        "Copie e cole este texto no orquestra:",
         texto_pricing,
         height=420,
     )
