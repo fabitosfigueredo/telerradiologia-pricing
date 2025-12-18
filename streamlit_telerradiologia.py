@@ -72,7 +72,13 @@ def gerar_texto_pricing(data: dict) -> str:
     linhas.append(f"- PACS do cliente: {data['pacs']}")
     linhas.append(f"- HIS do cliente: {data['his']}")
     linhas.append(f"- Servidor PACS / Router: {data['servidor_pacs']}")
-    linhas.append(f"- Portal do Paciente: {data['portal_paciente']}\n")
+    linhas.append(f"- Portal do Paciente: {data['portal_paciente']}")
+
+    # SISCAN / SISMAMA (somente se Mamografia)
+    if "Mamografia" in data.get("modalidades", []) and data.get("siscan"):
+        linhas.append(f"- Preenchimento de sistemas do MS: {data['siscan']}")
+
+    linhas.append("")
 
     linhas.append("Modelo comercial:")
     linhas.append(f"- Modelo de remuneração: {data['modelo_remuneracao']}")
@@ -108,6 +114,7 @@ if "data" not in st.session_state:
         "portal_paciente": None,
         "modelo_remuneracao": None,
         "volume_minimo": None,
+        "siscan": None,  # <-- NOVO
         "sla": {}
     }
 
@@ -229,7 +236,6 @@ elif st.session_state.etapa == "infra":
         index=opcoes_int.index(valor_int),
     )
 
-    # PACS / HIS
     st.session_state.data["pacs"] = st.text_input(
         "PACS do cliente",
         value=st.session_state.data.get("pacs") or "",
@@ -238,6 +244,19 @@ elif st.session_state.etapa == "infra":
         "HIS do cliente",
         value=st.session_state.data.get("his") or "",
     )
+
+    # SISCAN / SISMAMA (somente se Mamografia)
+    if "Mamografia" in st.session_state.data.get("modalidades", []):
+        opcoes_siscan = ["SISCAN", "SISMAMA", "Nenhum dos dois"]
+        valor_siscan = st.session_state.data.get("siscan") or "Nenhum dos dois"
+        st.session_state.data["siscan"] = st.selectbox(
+            "Haverá preenchimento de sistemas do Ministério da Saúde?",
+            opcoes_siscan,
+            index=opcoes_siscan.index(valor_siscan),
+            help="Obrigatório para serviços de Mamografia",
+        )
+    else:
+        st.session_state.data["siscan"] = None
 
     # Servidor PACS
     opcoes_srv = ["FIDI", "Cliente"]
