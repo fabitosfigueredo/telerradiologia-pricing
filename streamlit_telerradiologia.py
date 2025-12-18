@@ -1,5 +1,17 @@
 """
 App Streamlit – Assistente de Coleta Telerradiologia (Comercial → Pricing)
+
+Objetivo:
+- Guiar o Comercial na coleta de informações
+- Evitar respostas técnicas (JSON)
+- Permitir VOLTAR para revisar informações
+- Gerar automaticamente o TEXTO DO PEDIDO DE PRICING
+
+Execução:
+streamlit run streamlit_telerradiologia.py
+
+Pré-requisitos:
+- pip install streamlit
 """
 
 import streamlit as st
@@ -66,8 +78,7 @@ def gerar_texto_pricing(data: dict) -> str:
         linhas.append(f"- Preenchimento MS (Mamografia): {data['siscan']}")
 
     linhas.append("\nModelo comercial:")
-    linhas.append(f"- Remuneração: {data['modelo_remuneracao']}")
-    linhas.append(f"- Volume mínimo: {data['volume_minimo']}\n")
+    linhas.append(f"- Remuneração: {data['modelo_remuneracao']}\n")
 
     linhas.append("SLA:")
     linhas.append(f"- Urgentes: {data['sla']['urgente']}")
@@ -89,7 +100,7 @@ if "data" not in st.session_state:
     st.session_state.data = {
         "modalidades": [],
         "volumetria": {},
-        "volumetria_6m": {},   # <-- NOVO
+        "volumetria_6m": {},
         "quantidade_unidades": None,
         "link_envio": None,
         "armazenamento": None,
@@ -99,7 +110,6 @@ if "data" not in st.session_state:
         "servidor_pacs": None,
         "portal_paciente": None,
         "modelo_remuneracao": None,
-        "volume_minimo": None,
         "siscan": None,
         "sla": {}
     }
@@ -116,7 +126,7 @@ if st.session_state.etapa == "modalidades":
     modalidades = st.multiselect(
         "Selecione as modalidades:",
         ["Raios-X", "Tomografia", "Ressonância Magnética", "Mamografia", "Densitometria", "Ultrassonografia"],
-        default=st.session_state.data["modalidades"]
+        default=st.session_state.data["modalidades"],
     )
 
     if st.button("Próximo") and modalidades:
@@ -130,7 +140,7 @@ elif st.session_state.etapa == "volumetria":
 
     for mod in st.session_state.data["modalidades"]:
         with st.expander(mod, expanded=True):
-            volume = st.number_input(f"Volume mensal – {mod}", 0, key=f"vol_{mod}")
+            volume = st.number_input(f"Volume mensal – {mod}", min_value=0, step=1, key=f"vol_{mod}")
             urgente = st.number_input(f"% Urgente – {mod}", 0, 100, key=f"urg_{mod}")
             internado = st.number_input(f"% Internado – {mod}", 0, 100, key=f"int_{mod}")
 
@@ -152,7 +162,7 @@ elif st.session_state.etapa == "quantidade_unidades":
     botao_voltar("quantidade_unidades")
     st.subheader("3. Abrangência")
 
-    qtd = st.number_input("Quantidade de unidades", 1)
+    qtd = st.number_input("Quantidade de unidades", min_value=1, step=1)
 
     if st.button("Próximo"):
         st.session_state.data["quantidade_unidades"] = qtd
@@ -199,11 +209,6 @@ elif st.session_state.etapa == "financeiro":
                 step=1,
                 key=f"hist_{mod}"
             )
-
-    st.session_state.data["volume_minimo"] = st.selectbox(
-        "Existe volume mínimo mensal?",
-        ["Sim", "Não"]
-    )
 
     if st.button("Próximo"):
         st.session_state.etapa = "sla"
