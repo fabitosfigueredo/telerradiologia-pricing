@@ -202,36 +202,59 @@ elif st.session_state.etapa == "infra":
     botao_voltar("infra")
     st.subheader("4. Infraestrutura e Integração")
 
+    # Link de envio
+    opcoes_link = ["FIDI", "Cliente"]
+    valor_link = st.session_state.data.get("link_envio") or "FIDI"
     st.session_state.data["link_envio"] = st.selectbox(
         "Link de envio das imagens",
-        ["FIDI", "Cliente"],
-        index=["FIDI", "Cliente"].index(st.session_state.data.get("link_envio", "FIDI")),
+        opcoes_link,
+        index=opcoes_link.index(valor_link),
     )
+
+    # Armazenamento
+    opcoes_arm = ["FIDI", "Cliente"]
+    valor_arm = st.session_state.data.get("armazenamento") or "FIDI"
     st.session_state.data["armazenamento"] = st.selectbox(
         "Armazenamento das imagens",
-        ["FIDI", "Cliente"],
-        index=["FIDI", "Cliente"].index(st.session_state.data.get("armazenamento", "FIDI")),
+        opcoes_arm,
+        index=opcoes_arm.index(valor_arm),
     )
+
+    # Integração
+    opcoes_int = ["Sim", "Não"]
+    valor_int = st.session_state.data.get("integracao") or "Não"
     st.session_state.data["integracao"] = st.selectbox(
         "Necessita integração de sistemas?",
-        ["Sim", "Não"],
-        index=["Sim", "Não"].index(st.session_state.data.get("integracao", "Não")),
+        opcoes_int,
+        index=opcoes_int.index(valor_int),
     )
+
+    # PACS / HIS
     st.session_state.data["pacs"] = st.text_input(
-        "PACS do cliente", value=st.session_state.data.get("pacs") or ""
+        "PACS do cliente",
+        value=st.session_state.data.get("pacs") or "",
     )
     st.session_state.data["his"] = st.text_input(
-        "HIS do cliente", value=st.session_state.data.get("his") or ""
+        "HIS do cliente",
+        value=st.session_state.data.get("his") or "",
     )
+
+    # Servidor PACS
+    opcoes_srv = ["FIDI", "Cliente"]
+    valor_srv = st.session_state.data.get("servidor_pacs") or "Cliente"
     st.session_state.data["servidor_pacs"] = st.selectbox(
         "Servidor PACS / Router",
-        ["FIDI", "Cliente"],
-        index=["FIDI", "Cliente"].index(st.session_state.data.get("servidor_pacs", "Cliente")),
+        opcoes_srv,
+        index=opcoes_srv.index(valor_srv),
     )
+
+    # Portal do paciente
+    opcoes_portal = ["Sim", "Não"]
+    valor_portal = st.session_state.data.get("portal_paciente") or "Não"
     st.session_state.data["portal_paciente"] = st.selectbox(
         "Portal do Paciente",
-        ["Sim", "Não"],
-        index=["Sim", "Não"].index(st.session_state.data.get("portal_paciente", "Não")),
+        opcoes_portal,
+        index=opcoes_portal.index(valor_portal),
     )
 
     if st.button("Próximo"):
@@ -242,18 +265,20 @@ elif st.session_state.etapa == "financeiro":
     botao_voltar("financeiro")
     st.subheader("5. Modelo Comercial")
 
+    opcoes_modelo = ["Por exame", "Pacote mensal", "Escalonado por volume", "Misto"]
+    valor_modelo = st.session_state.data.get("modelo_remuneracao") or "Por exame"
     st.session_state.data["modelo_remuneracao"] = st.selectbox(
         "Modelo de remuneração",
-        ["Por exame", "Pacote mensal", "Escalonado por volume", "Misto"],
-        index=["Por exame", "Pacote mensal", "Escalonado por volume", "Misto"].index(
-            st.session_state.data.get("modelo_remuneracao", "Por exame")
-        ),
+        opcoes_modelo,
+        index=opcoes_modelo.index(valor_modelo),
     )
 
+    opcoes_vol = ["Sim", "Não"]
+    valor_vol = st.session_state.data.get("volume_minimo") or "Não"
     st.session_state.data["volume_minimo"] = st.selectbox(
         "Existe volume mínimo mensal?",
-        ["Sim", "Não"],
-        index=["Sim", "Não"].index(st.session_state.data.get("volume_minimo", "Não")),
+        opcoes_vol,
+        index=opcoes_vol.index(valor_vol),
     )
 
     if st.button("Próximo"):
