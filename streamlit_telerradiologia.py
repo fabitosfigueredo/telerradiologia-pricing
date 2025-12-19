@@ -173,17 +173,17 @@ elif st.session_state.etapa == "infra":
     botao_voltar("infra")
     st.subheader("4. Infraestrutura")
 
-    st.session_state.data["link_envio"] = st.selectbox("Link de envio", ["FIDI", "Cliente"])
-    st.session_state.data["armazenamento"] = st.selectbox("Armazenamento", ["FIDI", "Cliente"])
-    st.session_state.data["integracao"] = st.selectbox("Integração", ["Sim", "Não"])
-    st.session_state.data["pacs"] = st.text_input("PACS")
-    st.session_state.data["his"] = st.text_input("HIS")
-    st.session_state.data["servidor_pacs"] = st.selectbox("Servidor PACS", ["FIDI", "Cliente"])
+    st.session_state.data["link_envio"] = st.selectbox("Link de envio das imagens", ["FIDI", "Cliente"])
+    st.session_state.data["armazenamento"] = st.selectbox("Armazenamento das imagens", ["FIDI", "Cliente"])
+    st.session_state.data["integracao"] = st.selectbox("Integração entre sistemas", ["Sim", "Não"])
+    st.session_state.data["pacs"] = st.text_input("PACS do cliente")
+    st.session_state.data["his"] = st.text_input("HIS/Prontuáro eletrônico do Paciente")
+    st.session_state.data["servidor_pacs"] = st.selectbox("Servidor PACS/Desktop Router", ["FIDI", "Cliente"])
     st.session_state.data["portal_paciente"] = st.selectbox("Portal do Paciente", ["Sim", "Não"])
 
     if "Mamografia" in st.session_state.data["modalidades"]:
         st.session_state.data["siscan"] = st.selectbox(
-            "Preenchimento MS (Mamografia)",
+            "Preenchimento de sistema do Ministério da Saúde (Mamografia)",
             ["SISCAN", "SISMAMA", "Nenhum dos dois"]
         )
 
