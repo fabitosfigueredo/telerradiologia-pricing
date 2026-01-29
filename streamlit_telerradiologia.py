@@ -1,6 +1,6 @@
 """
 App Streamlit – Assistente de Coleta Telerradiologia (Comercial → Pricing)
-VERSÃO v3 – UX + Validações + Endereço + Financeiro corrigido
+VERSÃO v3 – UX + Validações + Endereço + Financeiro corrigido + SISCAN
 """
 
 import streamlit as st
@@ -101,6 +101,9 @@ def gerar_texto_pricing(data: dict) -> str:
             f"{e['cidade_uf']} (CEP {e['cep']})"
         )
 
+    if "Mamografia" in data["modalidades"] and data.get("siscan"):
+        linhas.append(f"- Sistema MS (Mamografia): {data['siscan']}")
+
     linhas.append("\nModelo comercial:")
     linhas.append(f"- Remuneração: {data['modelo_remuneracao']}\n")
 
@@ -133,6 +136,7 @@ if "data" not in st.session_state:
         "servidor_pacs": None,
         "portal_paciente": None,
         "modelo_remuneracao": "Fixo + Variável",
+        "siscan": None,
         "sla": {},
         "endereco_unidade": None
     }
@@ -262,31 +266,64 @@ elif st.session_state.etapa == "infra":
     botao_voltar("infra")
     st.subheader("4. Infraestrutura")
 
-    erro_endereco = False
+    st.session_state.data["link_envio"] = st.selectbox(
+        "Link de envio",
+        ["Cliente", "FIDI"]
+    )
+    st.session_state.data["armazenamento"] = st.selectbox(
+        "Armazenamento",
+        ["Cliente", "FIDI"]
+    )
+    st.session_state.data["servidor_pacs"] = st.selectbox(
+        "Desktop / Router",
+        ["Cliente", "FIDI"]
+    )
 
-    st.session_state.data["link_envio"] = st.selectbox("Link de envio", ["Cliente", "FIDI"])
-    st.session_state.data["armazenamento"] = st.selectbox("Armazenamento", ["Cliente", "FIDI"])
-    st.session_state.data["servidor_pacs"] = st.selectbox("Desktop / Router", ["Cliente", "FIDI"])
-
-    st.session_state.data["integracao"] = st.selectbox("Integração", ["Sim", "Não"])
+    st.session_state.data["integracao"] = st.selectbox(
+        "Integração",
+        ["Sim", "Não"]
+    )
     st.session_state.data["pacs"] = st.text_input("PACS")
     st.session_state.data["his"] = st.text_input("HIS")
-    st.session_state.data["portal_paciente"] = st.selectbox("Portal do Paciente", ["Sim", "Não"])
+    st.session_state.data["portal_paciente"] = st.selectbox(
+        "Portal do Paciente",
+        ["Sim", "Não"]
+    )
 
+    # --- SISCAN (Mamografia) ---
+    if "Mamografia" in st.session_state.data["modalidades"]:
+        st.session_state.data["siscan"] = st.selectbox(
+            "Sistema do Ministério da Saúde (Mamografia)",
+            ["SISCAN", "SISMAMA", "Nenhum"]
+        )
+
+    # --- Endereço (somente se Link = FIDI) ---
     if st.session_state.data["link_envio"] == "FIDI":
         st.markdown("### Endereço da unidade (para estimativa do link)")
 
-        cep = st.text_input("CEP *", placeholder="Ex: 01310-100")
+        cep = st.text_input(
+            "CEP *",
+            placeholder="Ex: 01310-100"
+        )
+
         dados = buscar_cep(cep) if cep else None
 
         if cep and not dados:
             st.error("CEP inválido.")
-            erro_endereco = True
 
         if dados:
-            logradouro = st.text_input("Logradouro", dados["logradouro"])
-            bairro = st.text_input("Bairro", dados["bairro"])
-            cidade_uf = st.text_input("Cidade / UF", f"{dados['localidade']} / {dados['uf']}")
+            logradouro = st.text_input(
+                "Logradouro",
+                dados["logradouro"]
+            )
+            bairro = st.text_input(
+                "Bairro",
+                dados["bairro"]
+            )
+            cidade_uf = st.text_input(
+                "Cidade / UF",
+                f"{dados['localidade']} / {dados['uf']}"
+            )
 
             st.session_state.data["endereco_unidade"] = {
                 "cep": cep,
@@ -294,17 +331,19 @@ elif st.session_state.etapa == "infra":
                 "bairro": bairro,
                 "cidade_uf": cidade_uf
             }
-        else:
-            erro_endereco = True
 
+    # --- Avanço ---
     if st.button("Próximo"):
-        if st.session_state.data["link_envio"] == "FIDI" and erro_endereco:
-            st.error("Informe um endereço válido para avançar.")
+        if (
+            st.session_state.data["link_envio"] == "FIDI"
+            and not st.session_state.data.get("endereco_unidade")
+        ):
+            st.error("Informe o endereço da unidade para estimativa do link.")
         else:
             st.session_state.etapa = "financeiro"
             st.rerun()
 
-# -------- FINANCEIRO (CORRIGIDO) --------
+# -------- FINANCEIRO --------
 elif st.session_state.etapa == "financeiro":
     botao_voltar("financeiro")
     st.subheader("5. Modelo Comercial")
