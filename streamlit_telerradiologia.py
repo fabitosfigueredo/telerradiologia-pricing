@@ -1,12 +1,33 @@
 """
 App Streamlit – Assistente de Coleta Telerradiologia (Comercial → Pricing)
-VERSÃO v3 – UX + Validações
+VERSÃO v4 – UX + Validações + Endereço para Link
 
 Execução:
-streamlit run streamlit_telerradiologia_v3_ux_validado.py
+streamlit run streamlit_telerradiologia_v4_endereco_link.py
 """
 
 import streamlit as st
+import requests
+
+# ==========================
+# UTIL – CEP (ViaCEP)
+# ==========================
+
+def buscar_cep(cep):
+    cep = cep.replace("-", "").strip()
+    if len(cep) != 8 or not cep.isdigit():
+        return None
+
+    try:
+        resp = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        if data.get("erro"):
+            return None
+        return data
+    except Exception:
+        return None
 
 # ==========================
 # CONFIG UX GLOBAL
@@ -77,6 +98,13 @@ def gerar_texto_pricing(data: dict) -> str:
     linhas.append(f"- Desktop / Router: {data['servidor_pacs']}")
     linhas.append(f"- Portal do Paciente: {data['portal_paciente']}")
 
+    if data["link_envio"] == "Cliente" and data.get("endereco_unidade"):
+        e = data["endereco_unidade"]
+        linhas.append(
+            f"- Endereço da unidade: {e['logradouro']}, {e['bairro']} – "
+            f"{e['cidade_uf']} (CEP {e['cep']})"
+        )
+
     if "Mamografia" in data["modalidades"]:
         linhas.append(f"- Preenchimento MS (Mamografia): {data['siscan']}")
 
@@ -114,7 +142,8 @@ if "data" not in st.session_state:
         "portal_paciente": None,
         "modelo_remuneracao": "Fixo + Variável",
         "siscan": None,
-        "sla": {}
+        "sla": {},
+        "endereco_unidade": None
     }
 
 # ==========================
@@ -122,9 +151,7 @@ if "data" not in st.session_state:
 # ==========================
 
 st.title("Assistente de Precificação – Telerradiologia")
-
-indice = ETAPAS.index(st.session_state.etapa) + 1
-st.progress(indice / len(ETAPAS))
+st.progress((ETAPAS.index(st.session_state.etapa) + 1) / len(ETAPAS))
 
 # ==========================
 # SIDEBAR – RESUMO
@@ -151,17 +178,12 @@ with st.sidebar:
 # -------- MODALIDADES --------
 if st.session_state.etapa == "modalidades":
     st.subheader("1. Modalidades")
-    st.caption("Selecione apenas as modalidades que farão parte do contrato.")
 
     modalidades = st.multiselect(
         "Modalidades",
         [
-            "Raios-X",
-            "Tomografia",
-            "Ressonância Magnética",
-            "Mamografia",
-            "Densitometria",
-            "Ultrassonografia"
+            "Raios-X", "Tomografia", "Ressonância Magnética",
+            "Mamografia", "Densitometria", "Ultrassonografia"
         ],
         default=st.session_state.data["modalidades"]
     )
@@ -175,26 +197,17 @@ if st.session_state.etapa == "modalidades":
 elif st.session_state.etapa == "volumetria":
     botao_voltar("volumetria")
     st.subheader("2. Volumetria estimada")
-    st.caption("Informe volumes médios mensais.")
 
     erro_us = False
 
     for mod in st.session_state.data["modalidades"]:
         with st.expander(mod, expanded=True):
 
-            volume = st.number_input(
-                "Volume mensal estimado",
-                min_value=0,
-                step=1,
-                key=f"vol_{mod}"
-            )
+            volume = st.number_input("Volume mensal estimado", min_value=0, step=1, key=f"vol_{mod}")
 
             if mod == "Ultrassonografia":
-                st.info("Perfis diferentes impactam custo (Doppler e Fetal).")
-
                 doppler = st.number_input("% Doppler", 0, 100, key="us_doppler")
                 fetal = st.number_input("% Fetal", 0, 100, key="us_fetal")
-
                 soma = doppler + fetal
                 simples = 100 - soma
 
@@ -202,15 +215,11 @@ elif st.session_state.etapa == "volumetria":
                     st.error("A soma de Doppler + Fetal não pode exceder 100%.")
                     erro_us = True
                 else:
-                    st.caption(f"Simples calculado automaticamente: {simples}%")
+                    st.caption(f"Simples calculado: {simples}%")
 
-                horario = st.text_input(
-                    "Horário de funcionamento *",
-                    placeholder="Ex: 07h às 19h"
-                )
-
+                horario = st.text_input("Horário de funcionamento *", placeholder="Ex: 07h às 19h")
                 if not horario:
-                    st.error("O horário de funcionamento da Ultrassonografia é obrigatório.")
+                    st.error("Horário de funcionamento é obrigatório.")
                     erro_us = True
 
                 st.session_state.data["volumetria"][mod] = {
@@ -224,14 +233,13 @@ elif st.session_state.etapa == "volumetria":
             else:
                 urgente = st.number_input("% Urgente", 0, 100, key=f"urg_{mod}")
                 internado = st.number_input("% Internado", 0, 100, key=f"int_{mod}")
-
                 soma = urgente + internado
                 eletivo = 100 - soma
 
                 if soma > 100:
                     st.error("A soma de Urgente + Internado não pode exceder 100%.")
                 else:
-                    st.caption(f"Eletivo calculado automaticamente: {eletivo}%")
+                    st.caption(f"Eletivo calculado: {eletivo}%")
 
                 st.session_state.data["volumetria"][mod] = {
                     "volume_mensal": volume,
@@ -252,12 +260,8 @@ elif st.session_state.etapa == "quantidade_unidades":
     botao_voltar("quantidade_unidades")
     st.subheader("3. Abrangência")
 
-    qtd = st.number_input(
-        "Quantidade de unidades atendidas",
-        min_value=1,
-        step=1,
-        value=st.session_state.data["quantidade_unidades"] or 1
-    )
+    qtd = st.number_input("Quantidade de unidades", min_value=1, step=1,
+                          value=st.session_state.data["quantidade_unidades"] or 1)
 
     if st.button("Próximo"):
         st.session_state.data["quantidade_unidades"] = qtd
@@ -269,26 +273,44 @@ elif st.session_state.etapa == "infra":
     botao_voltar("infra")
     st.subheader("4. Infraestrutura")
 
-    with st.expander("Responsabilidades", expanded=True):
-        st.session_state.data["link_envio"] = st.selectbox("Link de envio", ["Cliente", "FIDI"])
-        st.session_state.data["armazenamento"] = st.selectbox("Armazenamento", ["Cliente", "FIDI"])
-        st.session_state.data["servidor_pacs"] = st.selectbox("Desktop / Router", ["Cliente", "FIDI"])
+    st.session_state.data["link_envio"] = st.selectbox("Link de envio", ["Cliente", "FIDI"])
+    st.session_state.data["armazenamento"] = st.selectbox("Armazenamento", ["Cliente", "FIDI"])
+    st.session_state.data["servidor_pacs"] = st.selectbox("Desktop / Router", ["Cliente", "FIDI"])
 
-    with st.expander("Sistemas", expanded=True):
-        st.session_state.data["integracao"] = st.selectbox("Integração entre sistemas", ["Sim", "Não"])
-        st.session_state.data["pacs"] = st.text_input("PACS", placeholder="Ex: MV, Pixeon, Tasy")
-        st.session_state.data["his"] = st.text_input("HIS", placeholder="Ex: MV Soul, Tasy")
-        st.session_state.data["portal_paciente"] = st.selectbox("Portal do Paciente", ["Sim", "Não"])
+    if st.session_state.data["link_envio"] == "FIDI":
+        st.markdown("### Endereço da unidade (para estimativa do link)")
 
-    if "Mamografia" in st.session_state.data["modalidades"]:
-        st.session_state.data["siscan"] = st.selectbox(
-            "Sistema MS (Mamografia)",
-            ["SISCAN", "SISMAMA", "Nenhum"]
-        )
+        cep = st.text_input("CEP", placeholder="Ex: 01310-100")
+        dados_cep = buscar_cep(cep) if cep else None
+
+        if cep and not dados_cep:
+            st.error("CEP inválido ou não encontrado.")
+
+        if dados_cep:
+            st.success("Endereço localizado automaticamente")
+
+            logradouro = st.text_input("Logradouro", value=dados_cep.get("logradouro", ""))
+            bairro = st.text_input("Bairro", value=dados_cep.get("bairro", ""))
+            cidade_uf = st.text_input(
+                "Cidade / UF",
+                value=f"{dados_cep.get('localidade')} / {dados_cep.get('uf')}"
+            )
+            complemento = st.text_input("Complemento (opcional)")
+
+            st.session_state.data["endereco_unidade"] = {
+                "cep": cep,
+                "logradouro": logradouro,
+                "bairro": bairro,
+                "cidade_uf": cidade_uf,
+                "complemento": complemento
+            }
 
     if st.button("Próximo"):
-        st.session_state.etapa = "financeiro"
-        st.rerun()
+        if st.session_state.data["link_envio"] == "Cliente" and not st.session_state.data["endereco_unidade"]:
+            st.error("Informe o endereço da unidade para estimativa do link.")
+        else:
+            st.session_state.etapa = "financeiro"
+            st.rerun()
 
 # -------- FINANCEIRO --------
 elif st.session_state.etapa == "financeiro":
@@ -296,22 +318,17 @@ elif st.session_state.etapa == "financeiro":
     st.subheader("5. Modelo Comercial")
 
     st.session_state.data["modelo_remuneracao"] = st.selectbox(
-        "Modelo de remuneração",
-        ["Fixo + Variável", "Por exame"]
+        "Modelo de remuneração", ["Fixo + Variável", "Por exame"]
     )
 
     if st.session_state.data["modelo_remuneracao"] == "Por exame":
         st.warning(
-            "Informe a **média mensal** de exames (não a soma dos 6 meses).\n\n"
-            "Essa informação é usada para **cálculo de breakeven**."
+            "Informe a **média mensal** de exames (não a soma dos 6 meses). "
+            "Usado para **cálculo de breakeven**."
         )
-
         for mod in st.session_state.data["modalidades"]:
             st.session_state.data["volumetria_6m"][mod] = st.number_input(
-                f"{mod} – média mensal",
-                min_value=0,
-                step=1,
-                key=f"hist_{mod}"
+                f"{mod} – média mensal", min_value=0, step=1, key=f"hist_{mod}"
             )
 
     if st.button("Próximo"):
@@ -322,7 +339,6 @@ elif st.session_state.etapa == "financeiro":
 elif st.session_state.etapa == "sla":
     botao_voltar("sla")
     st.subheader("6. SLA em horas")
-    st.caption("SLAs mais agressivos impactam custo e escala médica.")
 
     urgente = st.text_input("Urgente", placeholder="Ex: 2")
     internado = st.text_input("Internado", placeholder="Ex: 8")
@@ -346,12 +362,7 @@ elif st.session_state.etapa == "final":
     st.success("Coleta finalizada. Texto gerado abaixo.")
 
     texto = gerar_texto_pricing(st.session_state.data)
-
-    st.text_area(
-        "Texto do pedido de pricing (copie e cole)",
-        texto,
-        height=450
-    )
+    st.text_area("Texto do pedido de pricing", texto, height=450)
 
     with st.expander("Dados estruturados (interno)"):
         st.json(st.session_state.data)
